@@ -25,8 +25,8 @@ def extract_features_from_query(range_query, table_stats, considered_cols):
             col]
         feature.extend([col_begin, col_end])
     avi_sel = stats.AVIEstimator.estimate(range_query, table_stats)
-    ebo_sel = stats.AVIEstimator.estimate(range_query, table_stats)
-    min_sel = stats.AVIEstimator.estimate(range_query, table_stats)
+    ebo_sel = stats.ExpBackoffEstimator.estimate(range_query, table_stats)
+    min_sel = stats.MinSelEstimator.estimate(range_query, table_stats)
     feature.extend([avi_sel, ebo_sel, min_sel])
     return feature
 
