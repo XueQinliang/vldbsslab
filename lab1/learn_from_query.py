@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import range_query as rq
 import json
+import math
 import torch
 import torch.nn as nn
 import statistics as stats
@@ -21,8 +22,9 @@ def extract_features_from_query(range_query, table_stats, considered_cols):
     feature = []
     # YOUR CODE HERE: extract features from query
     for col in considered_cols:
-        col_begin, col_end = range_query.col_left[col], range_query.col_right[
-            col]
+        col_begin, col_end = rq.ParsedRangeQuery.column_range(
+            range_query, col, table_stats.columns[col].min_val(),
+            table_stats.columns[col].max_val())
         feature.extend([col_begin, col_end])
     avi_sel = stats.AVIEstimator.estimate(range_query, table_stats)
     ebo_sel = stats.ExpBackoffEstimator.estimate(range_query, table_stats)
@@ -88,6 +90,19 @@ def est_mlp(train_data, test_data, table_stats, columns):
     return train_est_rows, train_act_rows, test_est_rows, test_act_rows
 
 
+def q_error(pred, label):
+    #label = dtrain.get_label()
+    mse = [(math.log(x) - math.log(y))**2 for x, y in zip(label, pred)]
+    grad = [2 * (math.log(y / x) / y) for x, y in zip(label, pred)]
+    hess = [
+        2 * (1 - math.log(y) + math.log(x)) / y**2
+        for x, y in zip(label, pred)
+    ]
+    grad = np.array(grad)
+    hess = np.array(hess)
+    return grad.reshape(-1, 1), hess.reshape(-1, 1)
+
+
 def est_xgb(train_data, test_data, table_stats, columns):
     """
     est_xgb uses xgboost to produce estimated rows for train_data and test_data
@@ -96,11 +111,31 @@ def est_xgb(train_data, test_data, table_stats, columns):
     train_x, train_y = preprocess_queries(train_data, table_stats, columns)
     train_est_rows, train_act_rows = [], []
     # YOUR CODE HERE: train procedure
-
+    #train_x = np.array(train_x)
+    #train_y = np.array(train_y)
+    #xgtrain = xgb.DMatrix(train_x, train_y)
+    param = {
+        'max_depth': 5,
+        'n_estimators': 500,
+        'num_round': 10,
+        'eta': 0.1,
+        'silent': 1,
+        'subsample': 0.7,
+        'colsample_bytree': 0.7,
+        'objective': q_error
+    }
+    estimator = xgb.XGBRegressor(**param)
+    estimator.fit(train_x, train_y)
+    train_est_rows = estimator.predict(train_x)
     test_x, test_y = preprocess_queries(test_data, table_stats, columns)
     test_est_rows, test_act_rows = [], []
     # YOUR CODE HERE: test procedure
-
+    # test_x = np.array(test_x)
+    # test_y = np.array(test_y)
+    #xgtest = xgb.DMatrix(test_x, test_y)
+    test_est_rows = estimator.predict(test_x)
+    train_act_rows = train_y
+    test_act_rows = test_y
     return train_est_rows, train_act_rows, test_est_rows, test_act_rows
 
 
@@ -141,5 +176,5 @@ if __name__ == '__main__':
     with open(test_json_file, 'r') as f:
         test_data = json.load(f)
 
-    eval_model('mlp', train_data, test_data, table_stats, columns)
+    #eval_model('mlp', train_data, test_data, table_stats, columns)
     eval_model('xgb', train_data, test_data, table_stats, columns)
