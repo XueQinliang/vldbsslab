@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import range_query as rq
 import json
-import math
 import torch
 import torch.nn as nn
 import statistics as stats
 import xgboost as xgb
+from scipy.misc import derivative
 
 
 def min_max_normalize(v, min_v, max_v):
@@ -90,17 +90,32 @@ def est_mlp(train_data, test_data, table_stats, columns):
     return train_est_rows, train_act_rows, test_est_rows, test_act_rows
 
 
-def q_error(pred, label):
-    #label = dtrain.get_label()
-    mse = [(math.log(x) - math.log(y))**2 for x, y in zip(label, pred)]
-    grad = [2 * (math.log(y / x) / y) for x, y in zip(label, pred)]
-    hess = [
-        2 * (1 - math.log(y) + math.log(x)) / y**2
-        for x, y in zip(label, pred)
-    ]
-    grad = np.array(grad)
-    hess = np.array(hess)
-    return grad.reshape(-1, 1), hess.reshape(-1, 1)
+def q_error(pred, dtrain):
+    label = dtrain.get_label()
+    # mse = [(math.log(x) - math.log(y))**2 for x, y in zip(label, pred)]
+    # grad = [2 * (math.log(y / x) / y) for x, y in zip(label, pred)]
+    # hess = [
+    #     2 * (1 - math.log(y) + math.log(x)) / y**2
+    #     for x, y in zip(label, pred)
+    # ]
+    # def fl(x, t):
+    #     return (np.log(x) - np.log(t))**2
+
+    # partial_fl = lambda x: fl(x, label)
+    # gred = derivative(partial_fl, pred, n=1, dx=1e-6)
+    # hess = derivative(partial_fl, pred, n=2, dx=1e-6)
+    # print(gred)
+    # print(hess)
+    # print()
+    # return gred, hess
+    pred = np.array(pred)
+    label = np.array(label)
+    grad = 2 * (np.log(pred) - np.log(label)) / pred
+    hess = 2 * (1 - np.log(pred) + np.log(label)) / pred**2
+    #grad = np.array(grad) / len(label)
+    #hess = np.array(hess) / len(label)
+    print(grad, hess)
+    return grad, hess
 
 
 def est_xgb(train_data, test_data, table_stats, columns):
@@ -113,19 +128,22 @@ def est_xgb(train_data, test_data, table_stats, columns):
     # YOUR CODE HERE: train procedure
     #train_x = np.array(train_x)
     #train_y = np.array(train_y)
-    #xgtrain = xgb.DMatrix(train_x, train_y)
+    xgtrain = xgb.DMatrix(train_x, train_y)
     param = {
-        'max_depth': 5,
+        'max_depth': 20,
         'n_estimators': 500,
-        'num_round': 10,
+        'num_round': 15,
         'eta': 0.1,
         'silent': 1,
         'subsample': 0.7,
         'colsample_bytree': 0.7,
-        'objective': q_error
+        #'objective': q_error,
+        #'objective': 'reg:squaredlogerror'
     }
+    #estimator = xgb.train(param, dtrain=xgtrain)
     estimator = xgb.XGBRegressor(**param)
     estimator.fit(train_x, train_y)
+    #train_est_rows = estimator.predict(xgtrain)
     train_est_rows = estimator.predict(train_x)
     test_x, test_y = preprocess_queries(test_data, table_stats, columns)
     test_est_rows, test_act_rows = [], []
@@ -133,9 +151,11 @@ def est_xgb(train_data, test_data, table_stats, columns):
     # test_x = np.array(test_x)
     # test_y = np.array(test_y)
     #xgtest = xgb.DMatrix(test_x, test_y)
+    #test_est_rows = estimator.predict(xgtest)
     test_est_rows = estimator.predict(test_x)
     train_act_rows = train_y
     test_act_rows = test_y
+    #print(test_est_rows)
     return train_est_rows, train_act_rows, test_est_rows, test_act_rows
 
 
