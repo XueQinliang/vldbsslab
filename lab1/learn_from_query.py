@@ -12,7 +12,7 @@ import xgboost as xgb
 def min_max_normalize(v, min_v, max_v):
     # The function may be useful when dealing with lower/upper bounds of columns.
     assert max_v > min_v
-    return (v-min_v)/(max_v-min_v)
+    return (v - min_v) / (max_v - min_v)
 
 
 def extract_features_from_query(range_query, table_stats, considered_cols):
@@ -20,6 +20,14 @@ def extract_features_from_query(range_query, table_stats, considered_cols):
     #           <-                   range features                    ->, <-     est features     ->
     feature = []
     # YOUR CODE HERE: extract features from query
+    for col in considered_cols:
+        col_begin, col_end = range_query.col_left[col], range_query.col_right[
+            col]
+        feature.extend([col_begin, col_end])
+    avi_sel = stats.AVIEstimator.estimate(range_query, table_stats)
+    ebo_sel = stats.AVIEstimator.estimate(range_query, table_stats)
+    min_sel = stats.AVIEstimator.estimate(range_query, table_stats)
+    feature.extend([avi_sel, ebo_sel, min_sel])
     return feature
 
 
@@ -31,17 +39,24 @@ def preprocess_queries(queris, table_stats, columns):
     for item in queris:
         query, act_rows = item['query'], item['act_rows']
         feature, label = None, None
+
         # YOUR CODE HERE: transform (query, act_rows) to (feature, label)
         # Some functions like rq.ParsedRangeQuery.parse_range_query and extract_features_from_query may be helpful.
+        range_query = rq.ParsedRangeQuery.parse_range_query(query)
+        feature = extract_features_from_query(range_query, table_stats,
+                                              columns)
+        label = act_rows
         features.append(feature)
         labels.append(label)
     return features, labels
 
 
 class QueryDataset(torch.utils.data.Dataset):
+
     def __init__(self, queries, table_stats, columns):
         super().__init__()
-        self.query_data = list(zip(preprocess_queries(queries, table_stats, columns)))
+        self.query_data = list(
+            zip(preprocess_queries(queries, table_stats, columns)))
 
     def __getitem__(self, index):
         return self.query_data[index]
@@ -55,12 +70,18 @@ def est_mlp(train_data, test_data, table_stats, columns):
     est_mlp uses MLP to produce estimated rows for train_data and test_data
     """
     train_dataset = QueryDataset(train_data, table_stats, columns)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=1)
+    train_loader = torch.utils.data.DataLoader(train_dataset,
+                                               batch_size=10,
+                                               shuffle=True,
+                                               num_workers=1)
     train_est_rows, train_act_rows = [], []
     # YOUR CODE HERE: train procedure
 
     test_dataset = QueryDataset(test_data, table_stats, columns)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=True, num_workers=1)
+    test_loader = torch.utils.data.DataLoader(test_dataset,
+                                              batch_size=10,
+                                              shuffle=True,
+                                              num_workers=1)
     test_est_rows, test_act_rows = [], []
     # YOUR CODE HERE: test procedure
 
@@ -89,16 +110,19 @@ def eval_model(model, train_data, test_data, table_stats, columns):
     else:
         est_fn = est_xgb
 
-    train_est_rows, train_act_rows, test_est_rows, test_act_rows = est_fn(train_data, test_data, table_stats, columns)
+    train_est_rows, train_act_rows, test_est_rows, test_act_rows = est_fn(
+        train_data, test_data, table_stats, columns)
 
     name = f'{model}_train_{len(train_data)}'
     eval_utils.draw_act_est_figure(name, train_act_rows, train_est_rows)
-    p50, p80, p90, p99 = eval_utils.cal_p_error_distribution(train_act_rows, train_est_rows)
+    p50, p80, p90, p99 = eval_utils.cal_p_error_distribution(
+        train_act_rows, train_est_rows)
     print(f'{name}, p50:{p50}, p80:{p80}, p90:{p90}, p99:{p99}')
 
     name = f'{model}_test_{len(test_data)}'
     eval_utils.draw_act_est_figure(name, test_act_rows, test_est_rows)
-    p50, p80, p90, p99 = eval_utils.cal_p_error_distribution(test_act_rows, test_est_rows)
+    p50, p80, p90, p99 = eval_utils.cal_p_error_distribution(
+        test_act_rows, test_est_rows)
     print(f'{name}, p50:{p50}, p80:{p80}, p90:{p90}, p99:{p99}')
 
 
@@ -106,8 +130,12 @@ if __name__ == '__main__':
     stats_json_file = './data/title_stats.json'
     train_json_file = './data/query_train_20000.json'
     test_json_file = './data/query_test_5000.json'
-    columns = ['kind_id', 'production_year', 'imdb_id', 'episode_of_id', 'season_nr', 'episode_nr']
-    table_stats = stats.TableStats.load_from_json_file(stats_json_file, columns)
+    columns = [
+        'kind_id', 'production_year', 'imdb_id', 'episode_of_id', 'season_nr',
+        'episode_nr'
+    ]
+    table_stats = stats.TableStats.load_from_json_file(stats_json_file,
+                                                       columns)
     with open(train_json_file, 'r') as f:
         train_data = json.load(f)
     with open(test_json_file, 'r') as f:
