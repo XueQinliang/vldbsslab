@@ -1,0 +1,44 @@
+{
+  "tests": [
+    {
+      "name": "lab1",
+      "setup": "sudo -H pip3 install pytest",
+      "run": "pytest lab1/test_result.py -k 'test_card'",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "lab2",
+      "setup": "sudo -H pip3 install pytest",
+      "run": "pytest lab2/test_result.py -k 'test_cost'",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "lab3",
+      "setup": "sudo -H pip3 install pytest",
+      "run": "pytest lab3/test_result.py -k 'test_lab3'",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 1
+    },
+    {
+      "name": "lab4",
+      "setup": "sudo -H pip3 install pytest",
+      "run": "pytest lab4/test_result.py -k 'test_lab4'",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 1
+    }
+  ]
+}
