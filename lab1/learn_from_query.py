@@ -130,9 +130,10 @@ def est_xgb(train_data, test_data, table_stats, columns):
     #train_y = np.array(train_y)
     xgtrain = xgb.DMatrix(train_x, train_y)
     param = {
-        'max_depth': 20,
+        'max_depth': 5,
         'n_estimators': 500,
-        'num_round': 15,
+        'learning_rate': 0.1,
+        'num_round': 200,
         'eta': 0.1,
         'silent': 1,
         'subsample': 0.7,
@@ -155,6 +156,8 @@ def est_xgb(train_data, test_data, table_stats, columns):
     test_est_rows = estimator.predict(test_x)
     train_act_rows = train_y
     test_act_rows = test_y
+    test_est_rows = test_est_rows.tolist()
+    train_est_rows = train_est_rows.tolist()
     #print(test_est_rows)
     return train_est_rows, train_act_rows, test_est_rows, test_act_rows
 
